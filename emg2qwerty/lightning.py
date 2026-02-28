@@ -25,6 +25,7 @@ from emg2qwerty.modules import (
     MultiBandRotationInvariantMLP,
     SpectrogramNorm,
     TDSConvEncoder,
+    TransformerEncoder,
 )
 from emg2qwerty.transforms import Transform
 
@@ -268,4 +269,58 @@ class TDSConvCTCModule(pl.LightningModule):
             self.parameters(),
             optimizer_config=self.hparams.optimizer,
             lr_scheduler_config=self.hparams.lr_scheduler,
+        )
+
+
+class TransformerCTCModule(TDSConvCTCModule):
+    def __init__(
+        self,
+        in_features: int,
+        mlp_features: Sequence[int],
+        d_model: int,
+        nhead: int,
+        num_layers: int,
+        dim_feedforward: int,
+        optimizer: DictConfig,      # Captures the optimizer config
+        lr_scheduler: DictConfig,   # Captures the scheduler config
+        decoder: DictConfig,        # Captures the decoder config
+        dropout: float = 0.1,
+    ) -> None:
+        # 1. Initialize Lightning but skip the TDS-specific parent logic
+        super(TDSConvCTCModule, self).__init__() 
+        
+        # 2. Save EVERYTHING in this signature to self.hparams
+        # This fixes the "Missing attribute optimizer" error
+        self.save_hyperparameters()
+
+        # 3. Setup the basic CTC components (Loss, Decoder, Metrics)
+        self.ctc_loss = nn.CTCLoss(blank=charset().null_class)
+        self.decoder = instantiate(decoder)
+        
+        metrics = MetricCollection([CharacterErrorRates()])
+        self.metrics = nn.ModuleDict({
+            f"{phase}_metrics": metrics.clone(prefix=f"{phase}/")
+            for phase in ["train", "val", "test"]
+        })
+
+        # 4. Build the actual Transformer Model
+        num_features = self.NUM_BANDS * mlp_features[-1]
+        self.model = nn.Sequential(
+            SpectrogramNorm(channels=self.NUM_BANDS * self.ELECTRODE_CHANNELS),
+            MultiBandRotationInvariantMLP(
+                in_features=in_features,
+                mlp_features=mlp_features,
+                num_bands=self.NUM_BANDS,
+            ),
+            nn.Flatten(start_dim=2),
+            TransformerEncoder(
+                num_features=num_features,
+                d_model=d_model,
+                nhead=nhead,
+                num_layers=num_layers,
+                dim_feedforward=dim_feedforward,
+                dropout=dropout,
+            ),
+            nn.Linear(d_model, charset().num_classes),
+            nn.LogSoftmax(dim=-1),
         )

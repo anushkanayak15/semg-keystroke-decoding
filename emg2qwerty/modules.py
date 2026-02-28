@@ -8,6 +8,7 @@ from collections.abc import Sequence
 
 import torch
 from torch import nn
+import math
 
 
 class SpectrogramNorm(nn.Module):
@@ -278,3 +279,74 @@ class TDSConvEncoder(nn.Module):
 
     def forward(self, inputs: torch.Tensor) -> torch.Tensor:
         return self.tds_conv_blocks(inputs)  # (T, N, num_features)
+
+class PositionalEncoding(nn.Module):
+    """Injects information about the relative or absolute position of the 
+    tokens in the sequence. 
+    """
+    def __init__(self, d_model: int, max_len: int = 200000):
+        super().__init__()
+        pe = torch.zeros(max_len, d_model)
+        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        self.register_buffer('pe', pe)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # x shape: (T, N, E)
+        # self.pe shape: (Max_Len, E)
+        
+        # We slice pe to the current time length (T) 
+        # and add a middle dimension so it becomes (T, 1, E)
+        # This allows it to "broadcast" across the Batch (N) automatically.
+        x = x + self.pe[:x.size(0), :].unsqueeze(1)
+        return x
+
+
+class TransformerEncoder(nn.Module):
+    """A Transformer-based encoder to replace the TDSConvEncoder.
+    
+    Args:
+        num_features (int): Number of input features (T, N, num_features).
+        d_model (int): The embedding dimension for the transformer.
+        nhead (int): Number of attention heads.
+        num_layers (int): Number of transformer encoder layers.
+        dim_feedforward (int): Dimension of the MLP within the transformer.
+        dropout (float): Dropout probability.
+    """
+    def __init__(
+        self,
+        num_features: int,
+        d_model: int = 256,
+        nhead: int = 8,
+        num_layers: int = 4,
+        dim_feedforward: int = 1024,
+        dropout: float = 0.1,
+    ) -> None:
+        super().__init__()
+        
+        # Project EMG features to the transformer's d_model dimension
+        self.input_proj = nn.Linear(num_features, d_model)
+        self.pos_encoder = PositionalEncoding(d_model)
+        
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=d_model,
+            nhead=nhead,
+            dim_feedforward=dim_feedforward,
+            dropout=dropout,
+            activation="relu"
+        )
+        self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
+        
+        # Store for the final linear layer in the LightningModule
+        self.out_features = d_model
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # x: (T, N, num_features)
+        x = self.input_proj(x)
+        x = self.pos_encoder(x)
+        
+        # nn.TransformerEncoder expects (T, N, E) by default, which matches our shape
+        x = self.transformer(x)
+        return x
