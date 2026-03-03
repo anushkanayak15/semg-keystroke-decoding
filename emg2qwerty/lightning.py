@@ -90,10 +90,8 @@ class WindowedEMGDataModule(pl.LightningDataModule):
                 WindowedEMGDataset(
                     hdf5_path,
                     transform=self.test_transform,
-                    # Feed the entire session at once without windowing/padding
-                    # at test time for more realism
-                    window_length=None,
-                    padding=(0, 0),
+                    window_length=self.window_length,
+                    padding=self.padding,
                     jitter=False,
                 )
                 for hdf5_path in self.test_sessions
@@ -281,19 +279,15 @@ class TransformerCTCModule(TDSConvCTCModule):
         nhead: int,
         num_layers: int,
         dim_feedforward: int,
-        optimizer: DictConfig,      # Captures the optimizer config
-        lr_scheduler: DictConfig,   # Captures the scheduler config
-        decoder: DictConfig,        # Captures the decoder config
+        optimizer: DictConfig,
+        lr_scheduler: DictConfig,
+        decoder: DictConfig,
         dropout: float = 0.1,
     ) -> None:
-        # 1. Initialize Lightning but skip the TDS-specific parent logic
         super(TDSConvCTCModule, self).__init__() 
         
-        # 2. Save EVERYTHING in this signature to self.hparams
-        # This fixes the "Missing attribute optimizer" error
         self.save_hyperparameters()
 
-        # 3. Setup the basic CTC components (Loss, Decoder, Metrics)
         self.ctc_loss = nn.CTCLoss(blank=charset().null_class)
         self.decoder = instantiate(decoder)
         
@@ -303,7 +297,6 @@ class TransformerCTCModule(TDSConvCTCModule):
             for phase in ["train", "val", "test"]
         })
 
-        # 4. Build the actual Transformer Model
         num_features = self.NUM_BANDS * mlp_features[-1]
         self.model = nn.Sequential(
             SpectrogramNorm(channels=self.NUM_BANDS * self.ELECTRODE_CHANNELS),
