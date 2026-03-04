@@ -350,3 +350,40 @@ class TransformerEncoder(nn.Module):
         # nn.TransformerEncoder expects (T, N, E) by default, which matches our shape
         x = self.transformer(x)
         return x
+    
+class LSTMEncoder(nn.Module):
+    """An LSTM-based encoder for EMG sequence processing.
+    
+    Args:
+        num_features (int): Input feature size (from MLP output).
+        hidden_size (int): Number of features in the LSTM hidden state.
+        num_layers (int): Number of recurrent layers.
+        dropout (float): Dropout probability between LSTM layers.
+        bidirectional (bool): If True, becomes a BiLSTM.
+    """
+    def __init__(
+        self,
+        num_features: int,
+        hidden_size: int = 512,
+        num_layers: int = 3,
+        dropout: float = 0.2,
+        bidirectional: bool = True,
+    ) -> None:
+        super().__init__()
+        
+        self.lstm = nn.LSTM(
+            input_size=num_features,
+            hidden_size=hidden_size,
+            num_layers=num_layers,
+            dropout=dropout if num_layers > 1 else 0,
+            bidirectional=bidirectional,
+        )
+        
+        # The output dimension of the LSTM
+        self.out_features = hidden_size * (2 if bidirectional else 1)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # x shape: (T, N, num_features)
+        # LSTM output: (T, N, hidden_size * num_directions)
+        output, _ = self.lstm(x)
+        return output

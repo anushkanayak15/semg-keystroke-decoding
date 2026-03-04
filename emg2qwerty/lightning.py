@@ -26,6 +26,7 @@ from emg2qwerty.modules import (
     SpectrogramNorm,
     TDSConvEncoder,
     TransformerEncoder,
+    LSTMEncoder,
 )
 from emg2qwerty.transforms import Transform
 
@@ -315,5 +316,56 @@ class TransformerCTCModule(TDSConvCTCModule):
                 dropout=dropout,
             ),
             nn.Linear(d_model, charset().num_classes),
+            nn.LogSoftmax(dim=-1),
+        )
+
+class LSTMCTCModule(TDSConvCTCModule):
+    def __init__(
+        self,
+        in_features: int,
+        mlp_features: Sequence[int],
+        hidden_size: int,
+        num_layers: int,
+        optimizer: DictConfig,
+        lr_scheduler: DictConfig,
+        decoder: DictConfig,
+        dropout: float = 0.2,
+        bidirectional: bool = True,
+    ) -> None:
+        # We call the grandparent (pl.LightningModule) init via TDSConvCTCModule
+        super(TDSConvCTCModule, self).__init__() 
+        self.save_hyperparameters()
+
+        # Re-initialize shared components
+        self.ctc_loss = nn.CTCLoss(blank=charset().null_class)
+        self.decoder = instantiate(decoder)
+        
+        metrics = MetricCollection([CharacterErrorRates()])
+        self.metrics = nn.ModuleDict({
+            f"{phase}_metrics": metrics.clone(prefix=f"{phase}/")
+            for phase in ["train", "val", "test"]
+        })
+
+        num_features = self.NUM_BANDS * mlp_features[-1]
+        
+        # Define the LSTM Encoder
+        self.encoder = LSTMEncoder(
+            num_features=num_features,
+            hidden_size=hidden_size,
+            num_layers=num_layers,
+            dropout=dropout,
+            bidirectional=bidirectional,
+        )
+
+        self.model = nn.Sequential(
+            SpectrogramNorm(channels=self.NUM_BANDS * self.ELECTRODE_CHANNELS),
+            MultiBandRotationInvariantMLP(
+                in_features=in_features,
+                mlp_features=mlp_features,
+                num_bands=self.NUM_BANDS,
+            ),
+            nn.Flatten(start_dim=2),
+            self.encoder,
+            nn.Linear(self.encoder.out_features, charset().num_classes),
             nn.LogSoftmax(dim=-1),
         )
