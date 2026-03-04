@@ -350,7 +350,7 @@ class TransformerEncoder(nn.Module):
         # nn.TransformerEncoder expects (T, N, E) by default, which matches our shape
         x = self.transformer(x)
         return x
-    
+
 class LSTMEncoder(nn.Module):
     """An LSTM-based encoder for EMG sequence processing.
     

@@ -1,14 +1,13 @@
 # @package _global_
 module:
   _target_: emg2qwerty.lightning.LSTMCTCModule
-  in_features: 528      # (n_fft // 2 + 1) * 16
+  in_features: 528
   mlp_features: [384]
   hidden_size: 512
   num_layers: 3
   dropout: 0.2
   bidirectional: true
 
-# These stay here so datamodule is configured correctly
 datamodule:
   _target_: emg2qwerty.lightning.WindowedEMGDataModule
   window_length: 8000

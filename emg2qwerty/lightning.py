@@ -332,11 +332,9 @@ class LSTMCTCModule(TDSConvCTCModule):
         dropout: float = 0.2,
         bidirectional: bool = True,
     ) -> None:
-        # We call the grandparent (pl.LightningModule) init via TDSConvCTCModule
         super(TDSConvCTCModule, self).__init__() 
         self.save_hyperparameters()
 
-        # Re-initialize shared components
         self.ctc_loss = nn.CTCLoss(blank=charset().null_class)
         self.decoder = instantiate(decoder)
         
@@ -348,7 +346,6 @@ class LSTMCTCModule(TDSConvCTCModule):
 
         num_features = self.NUM_BANDS * mlp_features[-1]
         
-        # Define the LSTM Encoder
         self.encoder = LSTMEncoder(
             num_features=num_features,
             hidden_size=hidden_size,
