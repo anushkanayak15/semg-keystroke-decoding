@@ -28,6 +28,7 @@ from emg2qwerty.modules import (
     SpectrogramNorm,
     TDSConvEncoder,
     TransformerEncoder,
+    LSTMEncoder,
 )
 from emg2qwerty.transforms import Transform
 
@@ -386,6 +387,7 @@ class CNNBiLSTMCTCModule(pl.LightningModule):
     def __init__(
         self,
         in_features: int,
+        cnn_layers_count: int,
         cnn_channels1: int,
         cnn_channels2: int,
         cnn_kernel_size: int,
@@ -409,30 +411,52 @@ class CNNBiLSTMCTCModule(pl.LightningModule):
         # Conv params for output-length calculation
         self.cnn_stride = int(cnn_stride)
         self.cnn_kernel_size = int(cnn_kernel_size)
+        print("It's me kernel", self.cnn_kernel_size)
         self.cnn_pad = self.cnn_kernel_size // 2
 
+        self.cnn_layers_count = cnn_layers_count
+        in_dim = in_features
+        layers = []
+        
         # CNN over time: Conv1d expects (N, C_in, T)
-        self.conv1 = nn.Conv1d(
-            in_channels=in_features,
-            out_channels=cnn_channels1,
-            kernel_size=self.cnn_kernel_size,
-            stride=self.cnn_stride,
-            padding=self.cnn_pad,
-        )
-        self.bn1 = nn.BatchNorm1d(cnn_channels1)
+        for i in range(self.cnn_layers_count):
+            # Use cnn_channels1 for first layer, cnn_channels2 for the rest
+            out_dim = cnn_channels1 if i == 0 else cnn_channels2
+            
+            layers.append(nn.Conv1d(
+                in_channels=in_dim,
+                out_channels=out_dim,
+                kernel_size=self.cnn_kernel_size,
+                stride=self.cnn_stride if i == 0 else 1, # Stride only on first layer
+                padding=self.cnn_pad,
+            ))
+            layers.append(nn.BatchNorm1d(out_dim))
+            layers.append(nn.ReLU())
+            in_dim = out_dim
+            
+        self.cnn_stack = nn.Sequential(*layers)
+        
+        # self.conv1 = nn.Conv1d(
+        #     in_channels=in_features,
+        #     out_channels=cnn_channels1,
+        #     kernel_size=self.cnn_kernel_size,
+        #     stride=self.cnn_stride,
+        #     padding=self.cnn_pad,
+        # )
+        # self.bn1 = nn.BatchNorm1d(cnn_channels1)
 
-        self.conv2 = nn.Conv1d(
-            in_channels=cnn_channels1,
-            out_channels=cnn_channels2,
-            kernel_size=self.cnn_kernel_size,
-            stride=1,
-            padding=self.cnn_pad,
-        )
-        self.bn2 = nn.BatchNorm1d(cnn_channels2)
+        # self.conv2 = nn.Conv1d(
+        #     in_channels=cnn_channels1,
+        #     out_channels=cnn_channels2,
+        #     kernel_size=self.cnn_kernel_size,
+        #     stride=1,
+        #     padding=self.cnn_pad,
+        # )
+        # self.bn2 = nn.BatchNorm1d(cnn_channels2)
 
         # BiLSTM: expects (T, N, F)
         self.lstm = nn.LSTM(
-            input_size=cnn_channels2,
+            input_size=out_dim,
             hidden_size=lstm_hidden,
             num_layers=lstm_layers,
             bidirectional=True,
@@ -487,8 +511,9 @@ class CNNBiLSTMCTCModule(pl.LightningModule):
         x = x.permute(1, 2, 0)  # (N, F, T)
 
         # CNN feature extractor
-        x = F.relu(self.bn1(self.conv1(x)))  # (N, cnn_channels1, T')
-        x = F.relu(self.bn2(self.conv2(x)))  # (N, cnn_channels2, T')
+        x = self.cnn_stack(x)
+        # x = F.relu(self.bn1(self.conv1(x)))  # (N, cnn_channels1, T')
+        # x = F.relu(self.bn2(self.conv2(x)))  # (N, cnn_channels2, T')
 
         # LSTM expects (T', N, F)
         x = x.permute(2, 0, 1)  # (T', N, cnn_channels2)

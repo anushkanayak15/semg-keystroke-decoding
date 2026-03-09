@@ -6,6 +6,7 @@ module:
   # If freq=33: 2 * 16 * 33 = 1056
   in_features: 1056
 
+  cnn_layers_count: 2
   cnn_channels1: 128
   cnn_channels2: 256
   cnn_kernel_size: 5
