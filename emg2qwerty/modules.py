@@ -387,3 +387,55 @@ class LSTMEncoder(nn.Module):
         # LSTM output: (T, N, hidden_size * num_directions)
         output, _ = self.lstm(x)
         return output
+
+class RNNCTCModule(nn.Module):
+    """RNN + Linear classifier producing per-timestep logits for CTC.
+
+    This is intentionally "dumb/simple": it assumes you already have features
+    shaped (T, N, C) from your frontend (e.g., spectrogram + MLP).
+    It outputs logits (T, N, V) where V = number of classes (charset size).
+
+    Args:
+        num_features (int): Input feature dimension C.
+        num_classes (int): Output vocab size V (incl. CTC blank if your repo counts it).
+        hidden_size (int): RNN hidden size.
+        num_layers (int): # RNN layers.
+        dropout (float): Dropout between RNN layers.
+        bidirectional (bool): BiRNN or not.
+        nonlinearity (str): "tanh" or "relu".
+        log_softmax (bool): If True, returns log-probs (common for CTC).
+    """
+    def __init__(
+        self,
+        num_features: int,
+        num_classes: int,
+        hidden_size: int = 512,
+        num_layers: int = 3,
+        dropout: float = 0.2,
+        bidirectional: bool = False,
+        nonlinearity: str = "tanh",
+        log_softmax: bool = False,
+    ) -> None:
+        super().__init__()
+
+        self.encoder = RNNEncoder(
+            num_features=num_features,
+            hidden_size=hidden_size,
+            num_layers=num_layers,
+            dropout=dropout,
+            bidirectional=bidirectional,
+            nonlinearity=nonlinearity,
+        )
+
+        self.classifier = nn.Linear(self.encoder.out_features, num_classes)
+        self.log_softmax = log_softmax
+
+        self.out_features = num_classes
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # x: (T, N, C)
+        h = self.encoder(x)                 # (T, N, H)
+        logits = self.classifier(h)         # (T, N, V)
+        if self.log_softmax:
+            logits = torch.log_softmax(logits, dim=-1)
+        return logits
