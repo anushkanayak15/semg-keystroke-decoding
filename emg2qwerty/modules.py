@@ -388,6 +388,45 @@ class LSTMEncoder(nn.Module):
         output, _ = self.lstm(x)
         return output
 
+class RNNEncoder(nn.Module):
+    """A plain RNN-based encoder for EMG sequence processing.
+
+    Args:
+        num_features (int): Input feature size (T, N, num_features).
+        hidden_size (int): Hidden size of the RNN.
+        num_layers (int): Number of stacked RNN layers.
+        dropout (float): Dropout probability between RNN layers.
+        bidirectional (bool): If True, becomes a BiRNN.
+        nonlinearity (str): "tanh" or "relu".
+    """
+    def __init__(
+        self,
+        num_features: int,
+        hidden_size: int = 512,
+        num_layers: int = 3,
+        dropout: float = 0.2,
+        bidirectional: bool = False,
+        nonlinearity: str = "tanh",
+    ) -> None:
+        super().__init__()
+
+        assert nonlinearity in {"tanh", "relu"}, f"Unsupported nonlinearity: {nonlinearity}"
+
+        self.rnn = nn.RNN(
+            input_size=num_features,
+            hidden_size=hidden_size,
+            num_layers=num_layers,
+            dropout=dropout if num_layers > 1 else 0.0,
+            bidirectional=bidirectional,
+            nonlinearity=nonlinearity,
+        )
+
+        self.out_features = hidden_size * (2 if bidirectional else 1)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        out, _ = self.rnn(x)
+        return out
+        
 class RNNCTCModule(nn.Module):
     """RNN + Linear classifier producing per-timestep logits for CTC.
 
