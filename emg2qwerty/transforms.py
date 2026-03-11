@@ -243,3 +243,119 @@ class SpecAugment:
 
         # (..., C, freq, T) -> (T, ..., C, freq)
         return x.movedim(-1, 0)
+
+
+@dataclass
+class EMGNormalize:
+    """
+    Normalize raw EMG before spectrogram conversion.
+
+    Input shape: (T, B, C)
+      T = time
+      B = bands (2)
+      C = channels (16)
+
+    Modes:
+    - "none"
+    - "per_channel_zscore"
+    - "global"
+    """
+    mode: str = "none"
+    eps: float = 1e-6
+
+    def __call__(self, tensor: torch.Tensor) -> torch.Tensor:
+        if self.mode == "none":
+            return tensor
+
+        if self.mode == "per_channel_zscore":
+            # mean/std over time for each band-channel independently
+            mean = tensor.mean(dim=0, keepdim=True) # (1, B, C)
+            std = tensor.std(dim=0, keepdim=True)   # (1, B, C)
+            return (tensor - mean) / (std + self.eps)
+
+        if self.mode == "global":
+            mean = tensor.mean()
+            std = tensor.std()
+            return (tensor - mean) / (std + self.eps)
+
+        raise ValueError(f"Unsupported normalization mode: {self.mode}")
+
+@dataclass
+class AddGaussianNoise:
+    """
+    Add Gaussian noise to raw EMG.
+    """
+    std: float = 0.0
+
+    def __call__(self, tensor: torch.Tensor) -> torch.Tensor:
+        if self.std <= 0:
+            return tensor
+        noise = torch.randn_like(tensor) * self.std
+        return tensor + noise
+
+@dataclass
+class RandomAmplitudeScale:
+    """
+    Scale the whole EMG window by a random factor in [1-scale, 1+scale].
+
+    Example:
+    scale=0.05 -> factor in [0.95, 1.05]
+    scale=0.10 -> factor in [0.90, 1.10]
+    """
+    scale: float = 0.0
+
+    def __call__(self, tensor: torch.Tensor) -> torch.Tensor:
+        if self.scale <= 0:
+            return tensor
+        factor = np.random.uniform(1.0 - self.scale, 1.0 + self.scale)
+        return tensor * factor
+
+@dataclass
+class RandomChannelDropout:
+    """
+    Randomly zero out channels across the whole window.
+
+    Input shape: (T, B, C)
+    A dropped channel is zeroed for all timesteps.
+    """
+    drop_prob: float = 0.0
+
+    def __call__(self, tensor: torch.Tensor) -> torch.Tensor:
+        if self.drop_prob <= 0:
+            return tensor
+
+        if tensor.ndim != 3:
+            raise ValueError(
+                f"Expected tensor of shape (T, B, C), got {tensor.shape}"
+            )
+
+        _, B, C = tensor.shape
+        keep_mask = (torch.rand(B, C, device=tensor.device) > self.drop_prob).float()
+
+        # Make sure not everything is dropped
+        if keep_mask.sum() == 0:
+            b = np.random.randint(B)
+            c = np.random.randint(C)
+            keep_mask[b, c] = 1.0
+
+        return tensor * keep_mask.unsqueeze(0)
+
+@dataclass
+class RandomPerChannelScale:
+    """
+    Randomly scale each band-channel independently.
+
+    More realistic than scaling the whole window by one factor because
+    electrode gains/contact can vary by channel.
+    """
+    scale: float = 0.0
+
+    def __call__(self, tensor: torch.Tensor) -> torch.Tensor:
+        if self.scale <= 0:
+            return tensor
+
+        _, B, C = tensor.shape
+        factors = torch.empty(B, C, device=tensor.device).uniform_(
+            1.0 - self.scale, 1.0 + self.scale
+        )
+        return tensor * factors.unsqueeze(0)
