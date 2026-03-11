@@ -14,6 +14,7 @@ module:
 
   lstm_hidden: 256
   lstm_layers: 2
+  dropout: 0.2
 
 datamodule:
   _target_: emg2qwerty.lightning.WindowedEMGDataModule

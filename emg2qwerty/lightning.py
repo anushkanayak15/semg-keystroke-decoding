@@ -394,6 +394,7 @@ class CNNBiLSTMCTCModule(pl.LightningModule):
         cnn_stride: int,
         lstm_hidden: int,
         lstm_layers: int,
+        dropout: float,
         optimizer: DictConfig,
         lr_scheduler: DictConfig,
         decoder: DictConfig,
@@ -461,6 +462,7 @@ class CNNBiLSTMCTCModule(pl.LightningModule):
             num_layers=lstm_layers,
             bidirectional=True,
             batch_first=False,
+            dropout=dropout if lstm_layers > 1 else 0
         )
 
         # Classifier to charset classes
