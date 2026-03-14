@@ -59,6 +59,7 @@ hyperparameter tuning.
 ├── hidden_size_lstm_depth.ipynb     # BiLSTM hidden size and layer depth study
 ├── cnn_depth.ipynb                  # CNN depth ablation (1, 2, 3 layers)
 ├── kernel_size.ipynb                # Convolutional kernel size ablation
+├── cnn_bilstm_preproc_aug_experiments.ipynb # preprocessing and data augmentation 
 │
 │── Optimization and Augmentation
 ├── dropout_lr_schedule.ipynb        # Grid search over dropout, LR, and scheduler
