@@ -1,7 +1,83 @@
-# C147/247 Final Project
-### Winter 2026 
+# EMG Keystroke Decoding - UCLA ECE C147/C247 Final Project
 
-This course project is built upon the emg2qwerty work from Meta. The first section of this README provides some guidance for working with the repo and contains a running list of FAQs. **Note that the rest of the README is from the original repo and we encourage you to take a look at their work.**
+This repository contains our final project for UCLA ECE C147/C247 (Neural Networks 
+& Deep Learning, Winter 2026). We investigate the decoding of QWERTY keystrokes 
+from surface electromyography (sEMG) signals using the `emg2qwerty` framework 
+released by Meta Reality Labs. All experiments are conducted on a single subject 
+(ID: `#89335547`) from the `emg2qwerty` dataset.
+
+---
+
+## Project Overview
+
+Surface EMG signals recorded from both wrists provide a non-invasive window into 
+finger movement intent during typing. The core task is to decode a sequence of 
+QWERTY keystrokes from 32-channel sEMG recordings using deep learning models 
+trained with Connectionist Temporal Classification (CTC) loss, evaluated via 
+Character Error Rate (CER).
+
+We systematically compare several neural architectures and conduct ablation studies 
+to understand what drives decoding performance:
+
+| Model | Description |
+|---|---|
+| TDS Conv (Baseline) | Provided Time-Depth Separable convolutional baseline |
+| Vanilla RNN | Simple unidirectional recurrent network |
+| BiLSTM | Bidirectional LSTM encoder |
+| Transformer | Multi-head self-attention encoder |
+| CNN + BiLSTM | Proposed hybrid convolutional-recurrent architecture |
+
+Our best standalone sequential model is the **BiLSTM**, and our best overall model 
+is the **CNN + BiLSTM** configuration selected after systematic architecture and 
+hyperparameter tuning.
+
+---
+
+## Repository Structure
+```text
+.
+├── config/                          # Hydra and model configuration YAML files
+├── emg2qwerty/                      # Modified project source code
+│   ├── lightning.py                 # PyTorch Lightning modules
+│   ├── modules.py                   # Model architecture definitions
+│   ├── data.py                      # Dataset and data loading utilities
+│   └── transforms.py                # Data transforms and augmentation
+├── figures/                         # Saved plots and experiment figures
+├── models/                          # Model definitions or saved checkpoints
+├── scripts/                         # Helper scripts for running experiments
+│
+├── Colab_setup.ipynb                # Environment setup and baseline walkthrough
+│
+│── Baseline and Architecture Experiments
+├── tds_conv.ipynb                   # TDS Conv baseline (150 epochs)
+├── tds_conv_50_epochs.ipynb         # Shorter TDS Conv baseline run (50 epochs)
+├── rnn.ipynb                        # Vanilla RNN experiment
+├── bilstm.ipynb                     # Bidirectional LSTM experiment
+├── transformer.ipynb                # Transformer encoder experiment
+│
+│── CNN-BiLSTM Ablation Studies
+├── hidden_size_lstm_depth.ipynb     # BiLSTM hidden size and layer depth study
+├── cnn_depth.ipynb                  # CNN depth ablation (1, 2, 3 layers)
+├── kernel_size.ipynb                # Convolutional kernel size ablation
+│
+│── Optimization and Augmentation
+├── dropout_lr_schedule.ipynb        # Grid search over dropout, LR, and scheduler
+├── 250_epoch_model.ipynb            # Extended training with augmentation
+│
+│── Final Model
+├── final_model.ipynb                # Final CNN + BiLSTM model (150 epochs)
+│
+│── Analysis Notebooks
+├── bilstm_analysis.ipynb            # Metrics and plots for BiLSTM
+├── cnn_bilstm_analysis.ipynb        # Metrics and plots for CNN + BiLSTM
+├── final_model_analysis.ipynb       # Summary metrics and plots for final model
+├── 250_epoch_model_analysis.ipynb   # Analysis for extended 250-epoch run
+│
+├── environment.yml                  # Conda environment specification
+├── requirements.txt                 # Python package dependencies
+└── README.md
+
+---
 
 ## Guiding Tips + FAQs
 _Last updated 2/13/2025_
