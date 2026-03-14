@@ -76,6 +76,49 @@ hyperparameter tuning.
 ├── environment.yml                  # Conda environment specification
 ├── requirements.txt                 # Python package dependencies
 └── README.md
+```
+---
+## Notebook Descriptions
+
+### Baseline and Architecture Comparison
+
+| Notebook | Description |
+|---|---|
+| `tds_conv.ipynb` | Trains and evaluates the provided TDS Conv baseline for 150 epochs. Establishes reference validation and test CER values used for all comparisons. |
+| `tds_conv_50_epochs.ipynb` | Shortened 50-epoch run of the TDS Conv model used for fast comparisons during hyperparameter sweeps. |
+| `rnn.ipynb` | Trains a 3-layer unidirectional RNN encoder with hidden size 512. Establishes a lower-bound recurrent baseline. |
+| `bilstm.ipynb` | Trains a 3-layer BiLSTM encoder with hidden size 512. Best-performing standalone sequential model. |
+| `transformer.ipynb` | Trains a Transformer encoder with multi-head self-attention. Explores global temporal context for sEMG decoding. |
+
+### CNN-BiLSTM Ablation Studies
+
+| Notebook | Description |
+|---|---|
+| `hidden_size_lstm_depth.ipynb` | Evaluates BiLSTM hidden sizes of 128, 256, and 512 to identify the effect of recurrent capacity on CER. |
+| `cnn_depth.ipynb` | Compares CNN frontend depths of 1, 2, and 3 convolutional blocks to assess the benefit of deeper spatial feature hierarchies. |
+| `kernel_size.ipynb` | Compares convolutional kernel sizes of 3, 5, 7, and 9 to study the effect of temporal receptive field size on decoding performance. |
+
+### Optimization and Augmentation
+
+| Notebook | Description |
+|---|---|
+| `dropout_lr_schedule.ipynb` | Full grid search (27 configurations) over dropout (0, 0.2, 0.4), learning rate (1e-3, 5e-4, 1e-4), and LR scheduler (none, cosine annealing, reduce-on-plateau). All runs trained for 50 epochs. |
+| `250_epoch_model.ipynb` | Extended 250-epoch training run using the best architecture and hyperparameter configuration, with additional data augmentation strategies including Gaussian noise injection, amplitude scaling, channel dropout, and temporal masking. |
+
+### Final Model
+
+| Notebook | Description |
+|---|---|
+| `final_model.ipynb` | Trains the final selected CNN + BiLSTM configuration for 150 epochs using the optimal architecture and hyperparameters identified through ablation and tuning. This is the primary model for final evaluation. |
+
+### Analysis Notebooks
+
+| Notebook | Description |
+|---|---|
+| `bilstm_analysis.ipynb` | Generates training curves, CER breakdowns, and error analysis plots for the BiLSTM model. |
+| `cnn_bilstm_analysis.ipynb` | Generates metrics and visualizations for the CNN + BiLSTM model across ablation experiments. |
+| `final_model_analysis.ipynb` | Produces all summary metrics and figures reported in the final paper for the selected model. |
+| `250_epoch_model_analysis.ipynb` | Analysis and plots for the extended 250-epoch training experiment. |
 
 ---
 
@@ -102,22 +145,33 @@ A dataset of surface electromyography (sEMG) recordings while touch typing on a 
 
 ## Setup
 
+### 1. Clone the Repository
 ```shell
-# Install [git-lfs](https://git-lfs.github.com/) (for pretrained checkpoints)
-git lfs install
-
-# Clone the repo, setup environment, and install local package
-git clone git@github.com:joe-lin-tech/emg2qwerty.git ~/emg2qwerty 
+git clone https://github.com//emg2qwerty.git ~/emg2qwerty
 cd ~/emg2qwerty
+```
+
+### 2. Create and Activate the Conda Environment
+```shell
 conda env create -f environment.yml
 conda activate emg2qwerty
 pip install -e .
+```
 
-# Download the dataset, extract, and symlink to ~/emg2qwerty/data
+### 3. Download and Link the Dataset
+```shell
 cd ~ && wget https://fb-ctrl-oss.s3.amazonaws.com/emg2qwerty/emg2qwerty-data-2021-08.tar.gz
 tar -xvzf emg2qwerty-data-2021-08.tar.gz
 ln -s ~/emg2qwerty-data-2021-08 ~/emg2qwerty/data
 ```
+
+### 4. Google Colab Users
+
+Open `Colab_setup.ipynb` for a step-by-step walkthrough of environment setup and 
+baseline model training within a Colab environment, including GPU configuration 
+and Google Drive integration.
+
+---
 
 ## Data
 
