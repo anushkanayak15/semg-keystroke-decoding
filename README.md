@@ -105,6 +105,7 @@ hyperparameter tuning.
 |---|---|
 | `dropout_lr_schedule.ipynb` | Full grid search (27 configurations) over dropout (0, 0.2, 0.4), learning rate (1e-3, 5e-4, 1e-4), and LR scheduler (none, cosine annealing, reduce-on-plateau). All runs trained for 50 epochs. |
 | `250_epoch_model.ipynb` | Extended 250-epoch training run using the best architecture and hyperparameter configuration, with additional data augmentation strategies including Gaussian noise injection, amplitude scaling, channel dropout, and temporal masking. |
+| `cnn_bilstm_preproc_aug_experiments.ipynb` | Experiments evaluating the impact of preprocessing and data augmentation techniques on CNN–BiLSTM model performance. |
 
 ### Final Model
 
